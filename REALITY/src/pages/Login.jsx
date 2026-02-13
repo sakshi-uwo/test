@@ -97,82 +97,40 @@ const Login = ({ onLogin }) => {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--charcoal)', paddingLeft: '4px' }}>Email Address</label>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: '12px',
-                            background: 'white', border: '1px solid var(--glass-border)',
-                            borderRadius: '12px', padding: '12px 16px',
-                            transition: 'all 0.3s ease'
-                        }} className="input-field">
-                            <User size={20} color="var(--charcoal)" opacity={0.5} />
-                            <input
-                                type="email"
-                                placeholder="builder@ai-auto.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '0.95rem' }}
-                            />
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--charcoal)', paddingLeft: '4px' }}>Password</label>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: '12px',
-                            background: 'white', border: '1px solid var(--glass-border)',
-                            borderRadius: '12px', padding: '12px 16px',
-                            transition: 'all 0.3s ease'
-                        }} className="input-field">
-                            <Lock size={20} color="var(--charcoal)" opacity={0.5} />
-                            <input
-                                type="password"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '0.95rem' }}
-                            />
-                        </div>
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        style={{
-                            marginTop: '1rem',
-                            padding: '14px',
-                            borderRadius: '12px',
-                            background: 'var(--pivot-blue)',
-                            color: 'white',
-                            border: 'none',
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '10px',
-                            transition: 'all 0.3s ease',
-                            boxShadow: '0 4px 15px rgba(0, 71, 171, 0.2)'
-                        }}
-                        onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                        onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
-                    >
-                        {loading ? 'Authenticating...' : (
-                            <>
-                                Sign In to OS <ArrowRight size={20} weight="bold" />
-                            </>
-                        )}
-                    </button>
-
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                        <span style={{ color: 'var(--charcoal)', opacity: 0.6 }}>Don't have an account?</span>
-                        <span style={{ color: 'var(--pivot-blue)', fontWeight: 700, cursor: 'pointer' }}>Request Access</span>
-                    </div>
-                </form>
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--charcoal)', opacity: 0.6, marginBottom: '0.5rem' }}>Select a role to enter the dashboard</p>
+                    {[
+                        { label: 'Login as Admin', role: 'admin', color: 'var(--pivot-blue)' },
+                        { label: 'Login as Builder', role: 'builder', color: '#0047AB' },
+                        { label: 'Login as Civil Engineer', role: 'civil_engineer', color: '#2E5BFF' },
+                        { label: 'Login as Site Manager', role: 'project_site', color: '#4CAF50' },
+                        { label: 'Login as Client/Buyer', role: 'client', color: '#ff9f4d' },
+                    ].map((btn) => (
+                        <button
+                            key={btn.role}
+                            onClick={() => {
+                                const userData = { name: btn.label.split('as ')[1], role: btn.role, email: `${btn.role}@ai-auto.com` };
+                                localStorage.setItem('aiauto_user', JSON.stringify(userData));
+                                onLogin(userData);
+                            }}
+                            style={{
+                                padding: '12px',
+                                borderRadius: '10px',
+                                background: btn.color,
+                                color: 'white',
+                                border: 'none',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                            }}
+                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
+                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                        >
+                            {btn.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <style>{`

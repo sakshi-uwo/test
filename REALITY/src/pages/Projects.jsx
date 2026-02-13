@@ -1,60 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Buildings, HouseLine, Tree, Waves, MapPin, Plus, X, CurrencyDollar, Calendar } from '@phosphor-icons/react';
+import { projectService } from '../services/api';
+import socketService from '../services/socket';
 
-const ProjectCard = ({ name, location, progress, units, available, status, icon: Icon, statusColor }) => (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0', padding: '0', overflow: 'hidden' }}>
-        <div style={{ height: '180px', background: 'var(--pivot-blue-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-            <Icon size={64} weight="thin" style={{ color: 'var(--pivot-blue-light)', opacity: 0.3 }} />
-            <span style={{
-                position: 'absolute', top: '15px', right: '15px', padding: '4px 12px', borderRadius: '20px',
-                fontSize: '0.75rem', fontWeight: 600, background: 'rgba(255, 255, 255, 0.9)',
-                color: statusColor, boxShadow: 'var(--shadow-elevation)'
-            }}>
-                {status}
-            </span>
+const ProjectCard = ({ name, location, progress, totalUnits, availableUnits, status, statusColor }) => {
+    const Icon = Buildings; // Default icon
+
+    return (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0', padding: '0', overflow: 'hidden' }}>
+            <div style={{ height: '180px', background: 'var(--pivot-blue-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <Icon size={64} weight="thin" style={{ color: 'var(--pivot-blue-light)', opacity: 0.3 }} />
+                <span style={{
+                    position: 'absolute', top: '15px', right: '15px', padding: '4px 12px', borderRadius: '20px',
+                    fontSize: '0.75rem', fontWeight: 600, background: 'rgba(255, 255, 255, 0.9)',
+                    color: status === 'Active' ? '#4CAF50' : '#ff4d4d', boxShadow: 'var(--shadow-elevation)'
+                }}>
+                    {status}
+                </span>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem' }}>{name}</h3>
+                <div style={{ fontSize: '0.85rem', color: 'var(--charcoal)', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '1.2rem' }}>
+                    <MapPin size={16} />
+                    <span>{location}</span>
+                </div>
+                <div style={{ marginBottom: '1.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '5px' }}>
+                        <span>Construction Progress</span>
+                        <span style={{ fontWeight: 600 }}>{progress}%</span>
+                    </div>
+                    <div style={{ height: '8px', background: 'var(--light-grey)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${progress}%`, background: 'var(--pivot-blue)', borderRadius: '4px' }}></div>
+                    </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                    <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--charcoal)' }}>Total Units</span>
+                        <div style={{ fontWeight: 600 }}>{totalUnits}</div>
+                    </div>
+                    <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--charcoal)' }}>Available</span>
+                        <div style={{ fontWeight: 600 }}>{availableUnits}</div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem' }}>{name}</h3>
-            <div style={{ fontSize: '0.85rem', color: 'var(--charcoal)', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '1.2rem' }}>
-                <MapPin size={16} />
-                <span>{location}</span>
-            </div>
-            <div style={{ marginBottom: '1.2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '5px' }}>
-                    <span>Construction Progress</span>
-                    <span style={{ fontWeight: 600 }}>{progress}%</span>
-                </div>
-                <div style={{ height: '8px', background: 'var(--light-grey)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${progress}%`, background: 'var(--pivot-blue)', borderRadius: '4px' }}></div>
-                </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-                <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--charcoal)' }}>Total Units</span>
-                    <div style={{ fontWeight: 600 }}>{units}</div>
-                </div>
-                <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--charcoal)' }}>Available</span>
-                    <div style={{ fontWeight: 600 }}>{available}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-);
+    );
+};
 
 const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
     const [formData, setFormData] = useState({
         name: '',
         location: '',
-        priceRange: '',
+        pricingRange: '',
         description: '',
-        units: '',
+        totalUnits: '',
         availableUnits: '',
         progress: 0,
-        expectedCompletion: '',
-        category: 'Planning',
-        propertyType: 'Residential',
-        icon: 'Buildings'
+        status: 'Active'
     });
 
     const handleChange = (e) => {
@@ -62,22 +65,9 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         onSubmit(formData);
-        setFormData({
-            name: '',
-            location: '',
-            priceRange: '',
-            description: '',
-            units: '',
-            availableUnits: '',
-            progress: 0,
-            expectedCompletion: '',
-            category: 'Planning',
-            propertyType: 'Residential',
-            icon: 'Buildings'
-        });
     };
 
     if (!isOpen) return null;
@@ -133,9 +123,7 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
                             height: '48px'
                         }}
                     >
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12.5 5L7.5 10L12.5 15" stroke="#0047AB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <CaretLeft size={20} color="#0047AB" weight="bold" />
                     </button>
                     <div>
                         <h2 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0, marginBottom: '0.25rem', color: '#000' }}>Add New Project</h2>
@@ -205,8 +193,8 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
                                 </label>
                                 <input
                                     type="text"
-                                    name="priceRange"
-                                    value={formData.priceRange}
+                                    name="pricingRange"
+                                    value={formData.pricingRange}
                                     onChange={handleChange}
                                     placeholder="e.g., $500k - $1.2M"
                                     style={{
@@ -225,10 +213,7 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
                         {/* Description */}
                         <div>
                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#374151' }}>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                                    <path d="M12 16V12M12 8H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                </svg>
+                                <Info size={18} weight="duotone" />
                                 Description
                             </label>
                             <textarea
@@ -248,66 +233,35 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
                                     fontFamily: 'inherit',
                                     resize: 'vertical'
                                 }}
-                            />
+                            ></textarea>
                         </div>
 
-                        {/* Property Type and Status */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                            <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#374151' }}>
-                                    <HouseLine size={18} weight="duotone" />
-                                    Property Type
-                                </label>
-                                <select
-                                    name="propertyType"
-                                    value={formData.propertyType}
-                                    onChange={handleChange}
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '14px 16px',
-                                        borderRadius: '10px',
-                                        border: '1px solid #e5e7eb',
-                                        fontSize: '0.95rem',
-                                        outline: 'none',
-                                        cursor: 'pointer',
-                                        background: '#fafafa'
-                                    }}
-                                >
-                                    <option value="Residential">Residential</option>
-                                    <option value="Commercial">Commercial</option>
-                                    <option value="Mixed-Use">Mixed-Use</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#374151' }}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                                        <path d="M12 16V12M12 8H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                    </svg>
-                                    Status
-                                </label>
-                                <select
-                                    name="category"
-                                    value={formData.category}
-                                    onChange={handleChange}
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '14px 16px',
-                                        borderRadius: '10px',
-                                        border: '1px solid #e5e7eb',
-                                        fontSize: '0.95rem',
-                                        outline: 'none',
-                                        cursor: 'pointer',
-                                        background: '#fafafa'
-                                    }}
-                                >
-                                    <option value="Planning">Planning</option>
-                                    <option value="Construction">Construction</option>
-                                </select>
-                            </div>
+                        {/* Status */}
+                        <div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#374151' }}>
+                                <Calendar size={18} weight="duotone" />
+                                Status
+                            </label>
+                            <select
+                                name="status"
+                                value={formData.status}
+                                onChange={handleChange}
+                                required
+                                style={{
+                                    width: '100%',
+                                    padding: '14px 16px',
+                                    borderRadius: '10px',
+                                    border: '1px solid #e5e7eb',
+                                    fontSize: '0.95rem',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    background: '#fafafa'
+                                }}
+                            >
+                                <option value="Active">Active</option>
+                                <option value="Upcoming">Upcoming</option>
+                                <option value="Completed">Completed</option>
+                            </select>
                         </div>
 
                         {/* Total Units and Available Units */}
@@ -318,8 +272,8 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
                                 </label>
                                 <input
                                     type="number"
-                                    name="units"
-                                    value={formData.units}
+                                    name="totalUnits"
+                                    value={formData.totalUnits}
                                     onChange={handleChange}
                                     required
                                     placeholder="e.g., 240"
@@ -344,6 +298,7 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
                                     name="availableUnits"
                                     value={formData.availableUnits}
                                     onChange={handleChange}
+                                    required
                                     placeholder="e.g., 180"
                                     style={{
                                         width: '100%',
@@ -358,59 +313,33 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
                             </div>
                         </div>
 
-                        {/* Construction Progress and Expected Completion */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                            <div>
-                                <label style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#374151', display: 'block' }}>
-                                    Construction Progress (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    name="progress"
-                                    value={formData.progress}
-                                    onChange={handleChange}
-                                    required
-                                    min="0"
-                                    max="100"
-                                    placeholder="0"
-                                    style={{
-                                        width: '100%',
-                                        padding: '14px 16px',
-                                        borderRadius: '10px',
-                                        border: '1px solid #e5e7eb',
-                                        fontSize: '0.95rem',
-                                        outline: 'none',
-                                        background: '#fafafa'
-                                    }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#374151' }}>
-                                    <Calendar size={18} weight="duotone" />
-                                    Expected Completion
-                                </label>
-                                <input
-                                    type="date"
-                                    name="expectedCompletion"
-                                    value={formData.expectedCompletion}
-                                    onChange={handleChange}
-                                    style={{
-                                        width: '100%',
-                                        padding: '14px 16px',
-                                        borderRadius: '10px',
-                                        border: '1px solid #e5e7eb',
-                                        fontSize: '0.95rem',
-                                        outline: 'none',
-                                        background: '#fafafa',
-                                        cursor: 'pointer'
-                                    }}
-                                />
-                            </div>
+                        {/* Construction Progress */}
+                        <div>
+                            <label style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#374151', display: 'block' }}>
+                                Construction Progress (%)
+                            </label>
+                            <input
+                                type="number"
+                                name="progress"
+                                value={formData.progress}
+                                onChange={handleChange}
+                                required
+                                min="0"
+                                max="100"
+                                placeholder="0"
+                                style={{
+                                    width: '100%',
+                                    padding: '14px 16px',
+                                    borderRadius: '10px',
+                                    border: '1px solid #e5e7eb',
+                                    fontSize: '0.95rem',
+                                    outline: 'none',
+                                    background: '#fafafa'
+                                }}
+                            />
                         </div>
                     </div>
 
-                    {/* Submit Button */}
                     <button
                         type="submit"
                         style={{
@@ -427,19 +356,7 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '10px',
-                            transition: 'all 0.3s ease',
-                            boxShadow: '0 4px 12px rgba(0,71,171,0.3)'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#003d99';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,71,171,0.4)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = '#0047AB';
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,71,171,0.3)';
+                            gap: '10px'
                         }}
                     >
                         <Plus size={22} weight="bold" />
@@ -452,48 +369,59 @@ const AddProjectModal = ({ isOpen, onClose, onSubmit }) => {
 };
 
 const Projects = () => {
+    const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState('All');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [projects, setProjects] = useState([
-        { name: 'Skyline Towers', location: 'Downtown District', progress: 85, units: 240, available: 36, status: '85% Done', icon: Buildings, statusColor: '#4CAF50', category: 'Construction' },
-        { name: 'Green Valley Estate', location: 'Northwood Suburbs', progress: 42, units: 120, available: 68, status: '42% Done', icon: Tree, statusColor: '#ff9f4d', category: 'Construction' },
-        { name: 'Oceanfront Villas', location: 'Coastal Bay', progress: 12, units: 45, available: 40, status: '12% Done', icon: Waves, statusColor: '#ff4d4d', category: 'Construction' },
-        { name: 'The Nexus Hub', location: 'Tech Park South', progress: 0, units: 80, available: 'Concept', status: 'Planning', icon: HouseLine, statusColor: 'var(--charcoal)', category: 'Planning' },
-    ]);
 
-    const iconMap = {
-        'Buildings': Buildings,
-        'Tree': Tree,
-        'Waves': Waves,
-        'HouseLine': HouseLine
-    };
-
-    const handleAddProject = (formData) => {
-        const newProject = {
-            name: formData.name,
-            location: formData.location,
-            progress: parseInt(formData.progress) || 0,
-            units: parseInt(formData.units),
-            available: formData.availableUnits ? parseInt(formData.availableUnits) :
-                (formData.category === 'Planning' ? 'Concept' : Math.floor(parseInt(formData.units) * 0.3)),
-            status: formData.category === 'Planning' ? 'Planning' : `${formData.progress}% Done`,
-            icon: Buildings, // Default to Buildings icon for simplicity
-            statusColor: formData.category === 'Planning' ? 'var(--charcoal)' :
-                (formData.progress > 70 ? '#4CAF50' : formData.progress > 30 ? '#ff9f4d' : '#ff4d4d'),
-            category: formData.category
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const response = await projectService.getAll();
+                setProjects(response.data || []);
+            } catch (error) {
+                console.error("Project Fetch Error:", error);
+            } finally {
+                setLoading(false);
+            }
         };
 
-        setProjects([...projects, newProject]);
-        setIsModalOpen(false);
+        fetchProjects();
+
+        socketService.on('project-added', (newProject) => {
+            setProjects(prev => [newProject, ...prev]);
+        });
+
+        socketService.on('project-updated', (updatedProject) => {
+            setProjects(prev => prev.map(p => p._id === updatedProject._id ? updatedProject : p));
+        });
+
+        return () => {
+            socketService.off('project-added');
+            socketService.off('project-updated');
+        };
+    }, []);
+
+    const handleAddProject = async (formData) => {
+        try {
+            await projectService.create(formData);
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error("Project Creation Error:", error);
+        }
     };
+
+
+
+    if (loading) return <div style={{ padding: '2rem' }}>Loading Projects...</div>;
 
     const filteredProjects = activeFilter === 'All'
         ? projects
-        : projects.filter(project => project.category === activeFilter);
+        : projects.filter(project => project.status === activeFilter);
 
     const getFilterCount = (filter) => {
         if (filter === 'All') return projects.length;
-        return projects.filter(p => p.category === filter).length;
+        return projects.filter(p => p.status === filter).length;
     };
 
     return (
@@ -506,7 +434,7 @@ const Projects = () => {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    {['All', 'Construction', 'Planning'].map((filter) => (
+                    {['All', 'Active', 'Upcoming', 'Completed'].map((filter) => (
                         <button
                             key={filter}
                             onClick={() => setActiveFilter(filter)}

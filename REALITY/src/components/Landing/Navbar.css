@@ -65,6 +65,10 @@
     .navbar-desktop-links {
         display: block;
     }
+
+    .navbar-desktop-links a {
+        text-decoration: none;
+    }
 }
 
 .login-btn {

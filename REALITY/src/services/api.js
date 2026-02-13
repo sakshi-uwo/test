@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8080/api';
+import { API_BASE_URL } from '../config/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -53,6 +52,36 @@ export const leadService = {
         const response = await api.post('/leads/seed');
         return response.data;
     },
+};
+
+export const projectService = {
+    getAll: async () => {
+        const response = await api.get('/projects');
+        return response.data;
+    },
+    create: async (data) => {
+        const response = await api.post('/projects', data);
+        return response.data;
+    },
+    update: async (id, data) => {
+        const response = await api.put(`/projects/${id}`, data);
+        return response.data;
+    }
+};
+
+export const visitService = {
+    getAll: async () => {
+        const response = await api.get('/site-visits');
+        return response.data;
+    },
+    create: async (data) => {
+        const response = await api.post('/site-visits', data);
+        return response.data;
+    },
+    updateStatus: async (id, status) => {
+        const response = await api.patch(`/site-visits/${id}`, { status });
+        return response.data;
+    }
 };
 
 export const chatService = {

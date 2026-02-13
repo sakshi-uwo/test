@@ -3,10 +3,13 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
-import LeadsAnalytics from './pages/LeadsAnalytics';
-import SiteVisits from './pages/SiteVisits';
-import Chatbot from './components/Chatbot';
+import AdminDashboard from './pages/dashboards/AdminDashboard';
+import BuilderDashboard from './pages/dashboards/BuilderDashboard';
+import CivilEngineerDashboard from './pages/dashboards/CivilEngineerDashboard';
+import ProjectSiteDashboard from './pages/dashboards/ProjectSiteDashboard';
+import ClientDashboard from './pages/dashboards/ClientDashboard';
 import Login from './pages/Login';
+import Chatbot from './components/Chatbot';
 import Settings from './pages/Settings';
 import { authService } from './services/api';
 import socketService from './services/socket';
@@ -45,15 +48,19 @@ function DashboardApp() {
   };
 
   const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard': return <Dashboard setCurrentPage={setCurrentPage} />;
-      case 'projects': return <Projects />;
-      case 'leads': return <LeadsAnalytics />;
-      case 'visits': return <SiteVisits />;
-      case 'settings': return <Settings theme={theme} setTheme={setTheme} />;
-      default: return <Dashboard />;
+    if (currentPage === 'settings') return <Settings theme={theme} setTheme={setTheme} />;
+
+    // Default to role-based dashboard if current page is 'dashboard' or unknown
+    switch (user?.role) {
+      case 'admin': return <AdminDashboard />;
+      case 'builder': return <BuilderDashboard />;
+      case 'civil_engineer': return <CivilEngineerDashboard />;
+      case 'project_site': return <ProjectSiteDashboard />;
+      case 'client': return <ClientDashboard />;
+      default: return <Dashboard setCurrentPage={setCurrentPage} />;
     }
   };
+
 
   if (!user) {
     return <Login onLogin={setUser} />;

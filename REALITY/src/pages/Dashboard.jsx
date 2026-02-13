@@ -42,20 +42,25 @@ const MetricCard = ({ icon: Icon, title, value, detail, detailColor, action }) =
 };
 
 const Dashboard = ({ setCurrentPage }) => {
-    const [hoveredStatus, setHoveredStatus] = useState(null);
-    const [selectedStatus, setSelectedStatus] = useState(null);
     const [stats, setStats] = useState(null);
     const [leads, setLeads] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [hoveredStatus, setHoveredStatus] = useState(null);
+    const [selectedStatus, setSelectedStatus] = useState(null);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const statsRes = await dashboardService.getStats();
-                const leadsRes = await leadService.getAll();
+                const [statsRes, leadsRes, projectsRes] = await Promise.all([
+                    dashboardService.getStats(),
+                    leadService.getAll(),
+                    projectService.getAll()
+                ]);
 
                 setStats(statsRes.data);
                 setLeads(leadsRes.data || []);
+                setProjects(projectsRes.data || []);
             } catch (error) {
                 console.error("Dashboard Fetch Error:", error);
             } finally {
@@ -67,22 +72,35 @@ const Dashboard = ({ setCurrentPage }) => {
 
         // Real-time listener
         socketService.on('dashboard-update', (newStats) => {
-            console.log('[REAL-TIME] Dashboard update received');
             setStats(newStats);
+        });
+
+        socketService.on('lead-added', (lead) => {
+            setLeads(prev => [lead, ...prev]);
+        });
+
+        socketService.on('lead-updated', (updatedLead) => {
+            setLeads(prev => prev.map(l => l._id === updatedLead._id ? updatedLead : l));
+        });
+
+        socketService.on('project-added', (project) => {
+            setProjects(prev => [project, ...prev]);
+        });
+
+        socketService.on('project-updated', (updatedProject) => {
+            setProjects(prev => prev.map(p => p._id === updatedProject._id ? updatedProject : p));
         });
 
         return () => {
             socketService.off('dashboard-update');
+            socketService.off('lead-added');
+            socketService.off('lead-updated');
+            socketService.off('project-added');
+            socketService.off('project-updated');
         };
     }, []);
 
     const activeStatus = hoveredStatus || selectedStatus;
-
-    const analyticsData = {
-        'Hot': { color: '#ff4d4d', projects: ['Skyline Towers', 'Green Valley'], conversion: '85%', visits: 12 },
-        'Warm': { color: '#ff9f4d', projects: ['Oceanview', 'Central Park'], conversion: '45%', visits: 24 },
-        'Cold': { color: '#4d9fff', projects: ['Oak Ridge', 'Sunset Villas'], conversion: '12%', visits: 12 },
-    };
 
     const chartData = stats ? [
         { label: 'Hot', value: stats.distribution.Hot, color: '#ff4d4d', detail: 'High conversion potential' },
@@ -100,23 +118,37 @@ const Dashboard = ({ setCurrentPage }) => {
         </div>
     );
 
+    if (loading) return <div style={{ padding: '2rem' }}>Loading Dashboard...</div>;
+
     return (
         <div style={{ padding: '2rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
             <MetricCard
                 icon={UserPlus}
                 title="Total Leads"
-                value={stats?.totalLeads || "..."}
+                value={stats?.totalLeads || 0}
                 detail={renderLeadsDetail}
             />
             <MetricCard
                 icon={Lightning}
                 title="Active Projects"
-                value={stats?.activeProjects || "..."}
-                detail="+2 this month"
+                value={stats?.activeProjects || 0}
+                detail="Across all regions"
                 detailColor="#4CAF50"
             />
-            <MetricCard icon={Calendar} title="Site Visits" value={stats?.siteVisits || "..."} detail="12 scheduled today" detailColor="var(--pivot-blue)" />
-            <MetricCard icon={CurrencyDollar} title="Projected Revenue" value={stats?.projectedRevenue || "..."} detail="15% growth" detailColor="#4CAF50" />
+            <MetricCard
+                icon={Calendar}
+                title="Site Visits"
+                value={stats?.siteVisits || 0}
+                detail="Scheduled for today"
+                detailColor="var(--pivot-blue)"
+            />
+            <MetricCard
+                icon={CurrencyDollar}
+                title="Projected Revenue"
+                value={stats?.projectedRevenue || "$0"}
+                detail="From Hot leads"
+                detailColor="#4CAF50"
+            />
 
             {/* Leads Distribution & Management Section */}
             <div className="card"
@@ -124,10 +156,8 @@ const Dashboard = ({ setCurrentPage }) => {
                     gridColumn: 'span 3',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '1.5rem',
-                    cursor: selectedStatus ? 'pointer' : 'default'
+                    gap: '1.5rem'
                 }}
-                onDoubleClick={() => setSelectedStatus(null)}
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 0.5rem' }}>
                     <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Leads Distribution & Analysis</h2>
@@ -139,7 +169,6 @@ const Dashboard = ({ setCurrentPage }) => {
                     </span>
                 </div>
 
-                {/* Top Section: Chart and Reveal Panel */}
                 <div style={{ display: 'flex', gap: '2rem', minHeight: '260px', alignItems: 'center', background: 'rgba(0, 71, 171, 0.02)', borderRadius: 'var(--radius-md)', padding: '1.5rem' }}>
                     <div style={{ flexShrink: 0 }}>
                         <LeadStatusChart
@@ -151,11 +180,9 @@ const Dashboard = ({ setCurrentPage }) => {
                         />
                     </div>
 
-                    {/* Reveal Details Panel */}
                     <div style={{
                         flex: 1,
                         opacity: activeStatus ? 1 : 0.5,
-                        transform: activeStatus ? 'translateX(0)' : 'translateX(10px)',
                         transition: 'all 0.4s ease',
                         display: 'flex',
                         flexDirection: 'column',
@@ -165,29 +192,18 @@ const Dashboard = ({ setCurrentPage }) => {
                     }}>
                         {activeStatus ? (
                             <div>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: analyticsData[activeStatus].color, marginBottom: '0.5rem' }}>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: activeStatus === 'Hot' ? '#ff4d4d' : activeStatus === 'Warm' ? '#ff9f4d' : '#4d9fff', marginBottom: '0.5rem' }}>
                                     {activeStatus} Status Impact
                                 </h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                                    <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                                        <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', marginBottom: '5px' }}>Top Projects</div>
-                                        <div style={{ fontSize: '0.9rem', fontWeight: 500, color: '#1f2937' }}>{analyticsData[activeStatus].projects.join(', ')}</div>
-                                    </div>
-                                    <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                                        <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', marginBottom: '5px' }}>Conversion Rate</div>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: analyticsData[activeStatus].color }}>{analyticsData[activeStatus].conversion}</div>
-                                    </div>
+                                <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', marginTop: '1rem' }}>
+                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', marginBottom: '5px' }}>Current Count</div>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{stats?.distribution[activeStatus]} Leads</div>
                                 </div>
                                 <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--charcoal)', opacity: 0.7 }}>
                                     {activeStatus === 'Hot' ? 'Primary focus for sales closure this week.' :
                                         activeStatus === 'Warm' ? 'Requires follow-up calls and site visit invitations.' :
                                             'Potential for long-term nurturing.'}
                                 </p>
-                                {selectedStatus && (
-                                    <div style={{ marginTop: '1rem', fontSize: '0.7rem', color: 'var(--pivot-blue)', fontStyle: 'italic' }}>
-                                        Double-click background to reset view
-                                    </div>
-                                )}
                             </div>
                         ) : (
                             <div style={{ textAlign: 'center', color: 'var(--charcoal)', opacity: 0.6 }}>
@@ -198,7 +214,6 @@ const Dashboard = ({ setCurrentPage }) => {
                     </div>
                 </div>
 
-                {/* Bottom Section: Leads Management Table */}
                 <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--soft-black)', marginBottom: '1rem', padding: '0 0.5rem' }}>Recent Leads Performance</h3>
                     <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
@@ -206,12 +221,12 @@ const Dashboard = ({ setCurrentPage }) => {
                             <tr style={{ textAlign: 'left', color: 'var(--charcoal)', opacity: 0.6 }}>
                                 <th style={{ padding: '0.8rem', fontSize: '0.8rem', fontWeight: 600 }}>Lead Name</th>
                                 <th style={{ padding: '0.8rem', fontSize: '0.8rem', fontWeight: 600 }}>Status</th>
-                                <th style={{ padding: '0.8rem', fontSize: '0.8rem', fontWeight: 600 }}>Last Activity</th>
+                                <th style={{ padding: '0.8rem', fontSize: '0.8rem', fontWeight: 600 }}>Date</th>
                             </tr>
                         </thead>
                         <tbody>
                             {leads.slice(0, 5).map((lead, i) => (
-                                <tr key={i} style={{ fontSize: '0.85rem', background: 'rgba(255, 255, 255, 0.4)', transition: 'var(--transition)' }} className="table-row">
+                                <tr key={i} style={{ fontSize: '0.85rem', background: 'rgba(255, 255, 255, 0.4)' }} className="table-row">
                                     <td style={{ padding: '1rem 0.8rem', fontWeight: 600, borderTopLeftRadius: '10px', borderBottomLeftRadius: '10px' }}>{lead.name}</td>
                                     <td style={{ padding: '1rem 0.8rem' }}>
                                         <span style={{
@@ -238,21 +253,24 @@ const Dashboard = ({ setCurrentPage }) => {
             {/* Property Summary */}
             <div className="card" style={{ gridColumn: 'span 1' }}>
                 <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Inventory Status</h2>
-                {[
-                    { name: 'Skyline Towers', progress: 85, color: 'var(--pivot-blue)' },
-                    { name: 'Green Valley', progress: 42, color: 'var(--pivot-blue-light)' },
-                    { name: 'Coastal Villas', progress: 12, color: '#ff9f4d' },
-                ].map((p, i) => (
-                    <div key={i} style={{ marginBottom: '1.2rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '5px' }}>
-                            <span>{p.name}</span>
-                            <span style={{ fontWeight: 700 }}>{p.progress}%</span>
+                {projects.slice(0, 5).map((p, i) => {
+                    const soldPercent = Math.round(((p.totalUnits - p.availableUnits) / p.totalUnits) * 100) || 0;
+                    return (
+                        <div key={i} style={{ marginBottom: '1.2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '5px' }}>
+                                <span>{p.name}</span>
+                                <span style={{ fontWeight: 700 }}>{soldPercent}% Sold</span>
+                            </div>
+                            <div style={{ height: '8px', background: 'var(--light-grey)', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${soldPercent}%`, background: 'var(--pivot-blue)', borderRadius: '4px' }}></div>
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--charcoal)', marginTop: '4px', textAlign: 'right' }}>
+                                {p.availableUnits} units left
+                            </div>
                         </div>
-                        <div style={{ height: '8px', background: 'var(--light-grey)', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${p.progress}%`, background: p.color, borderRadius: '4px' }}></div>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
+                {projects.length === 0 && <div style={{ fontSize: '0.85rem', opacity: 0.6 }}>No active projects</div>}
             </div>
 
         </div>

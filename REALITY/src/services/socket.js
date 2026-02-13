@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
+import { API_BASE_URL } from "../config/api";
 
-const SOCKET_URL = "http://localhost:8080";
+const SOCKET_URL = API_BASE_URL.replace('/api', '');
 
 class SocketService {
     constructor() {

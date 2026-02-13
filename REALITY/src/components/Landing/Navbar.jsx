@@ -29,8 +29,8 @@ const Navbar = () => {
                 >
                     <ThemeToggle />
 
-                    {/* <div className="navbar-desktop-links">
-                        <Link to="/dashboard">
+                    <div className="navbar-desktop-links">
+                        <Link to="/dashboard" style={{ textDecoration: 'none' }}>
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
@@ -40,7 +40,7 @@ const Navbar = () => {
                                 <CircleUser className="login-icon" />
                             </motion.button>
                         </Link>
-                    </div> */}
+                    </div>
 
                     <button
                         className="mobile-menu-toggle"
@@ -61,10 +61,10 @@ const Navbar = () => {
                         className="mobile-menu"
                     >
                         <div className="mobile-menu-content">
-                            {/* <Link to="/dashboard" className="mobile-login-btn">
-                                <CircleUser className="login-icon" />
+                            <Link to="/dashboard" className="mobile-login-btn" style={{ textDecoration: 'none' }}>
                                 <span>Dashboard</span>
-                            </Link> */}
+                                <CircleUser className="login-icon" />
+                            </Link>
                         </div>
                     </motion.div>
                 )}

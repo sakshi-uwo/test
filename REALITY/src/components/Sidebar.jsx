@@ -1,13 +1,51 @@
 import React from 'react';
 import { SquaresFour, Buildings, UsersThree, CalendarCheck, Gear, SignOut, Cube } from '@phosphor-icons/react';
 
+import { authService } from '../services/api';
+
 const Sidebar = ({ currentPage, setCurrentPage, onLogout }) => {
-    const navItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: <SquaresFour size={24} /> },
-        { id: 'projects', label: 'Projects', icon: <Buildings size={24} /> },
-        { id: 'leads', label: 'Leads Analytics', icon: <UsersThree size={24} /> },
-        { id: 'visits', label: 'Site Visits', icon: <CalendarCheck size={24} /> },
-    ];
+    const user = authService.getCurrentUser();
+
+    // Define role-based navigation
+    const getNavItems = () => {
+        const baseItems = [
+            { id: 'dashboard', label: 'Dashboard', icon: <SquaresFour size={24} /> },
+        ];
+
+        switch (user?.role) {
+            case 'admin':
+                return [
+                    ...baseItems,
+                    { id: 'projects', label: 'Projects', icon: <Buildings size={24} /> },
+                    { id: 'leads', label: 'Leads Analytics', icon: <UsersThree size={24} /> },
+                    { id: 'visits', label: 'Site Visits', icon: <CalendarCheck size={24} /> },
+                ];
+            case 'builder':
+                return [
+                    ...baseItems,
+                    { id: 'projects', label: 'Portfolio', icon: <Buildings size={24} /> },
+                ];
+            case 'civil_engineer':
+                return [
+                    ...baseItems,
+                    { id: 'tasks', label: 'Field Tasks', icon: <CalendarCheck size={24} /> },
+                ];
+            case 'project_site':
+                return [
+                    ...baseItems,
+                    { id: 'attendance', label: 'Labor Logs', icon: <UsersThree size={24} /> },
+                ];
+            case 'client':
+                return [
+                    ...baseItems,
+                    { id: 'documents', label: 'My Documents', icon: <Cube size={20} /> },
+                ];
+            default:
+                return baseItems;
+        }
+    };
+
+    const navItems = getNavItems();
 
     const sidebarStyle = {
         width: '260px',

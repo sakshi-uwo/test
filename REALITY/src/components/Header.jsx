@@ -3,6 +3,7 @@ import { MagnifyingGlass, Bell, ChatCircleDots } from '@phosphor-icons/react';
 import socketService from '../services/socket';
 
 const Header = ({ user, onLogout }) => {
+    // const [isConnected, setIsConnected] = React.useState(socketService.socket?.connected || false);
     const [showNotifications, setShowNotifications] = React.useState(false);
     const [notifications, setNotifications] = React.useState([
         { id: 1, title: 'New High-Score Lead', time: '2 mins ago', type: 'Hot', detail: 'Johnathan Smith just inquired about Skyline Towers.' },
@@ -12,6 +13,12 @@ const Header = ({ user, onLogout }) => {
     const [unread, setUnread] = React.useState(true);
 
     React.useEffect(() => {
+        // const handleConnect = () => setIsConnected(true);
+        // const handleDisconnect = () => setIsConnected(false);
+
+        // socketService.on('connect', handleConnect);
+        // socketService.on('disconnect', handleDisconnect);
+
         socketService.on('notification-push', (notif) => {
             console.log('[REAL-TIME] Notification received:', notif.title);
             const newNotif = {
@@ -26,6 +33,8 @@ const Header = ({ user, onLogout }) => {
         });
 
         return () => {
+            // socketService.off('connect', handleConnect);
+            // socketService.off('disconnect', handleDisconnect);
             socketService.off('notification-push');
         };
     }, []);
@@ -71,6 +80,7 @@ const Header = ({ user, onLogout }) => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', position: 'relative' }}>
+
                 <div style={{ position: 'relative' }}>
                     <button
                         className="icon-btn"
@@ -120,7 +130,7 @@ const Header = ({ user, onLogout }) => {
                 <div className="profile" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={onLogout}>
                     <div style={{ textAlign: 'right' }}>
                         <p style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>{user?.name || 'Administrator'}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--charcoal)', margin: 0 }}>OS Admin (Tap to Logout)</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--charcoal)', margin: 0, textTransform: 'capitalize' }}>{user?.role?.replace('_', ' ') || 'User'} (Tap to Logout)</p>
                     </div>
                     <img src={`https://ui-avatars.com/api/?name=${user?.name || 'Admin'}&background=0047AB&color=fff`} alt="Profile" style={{ width: '36px', height: '36px', borderRadius: '50%' }} />
                 </div>
