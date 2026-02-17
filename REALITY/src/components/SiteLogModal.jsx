@@ -1,15 +1,29 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { X, Notebook, CloudSun, Clock, Camera, PaperPlaneRight } from '@phosphor-icons/react';
+import { API_BASE_URL } from '../config/api';
 
 const SiteLogModal = ({ onClose }) => {
     const [logType, setLogType] = useState('general');
     const [description, setDescription] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Handle log submission logic here
-        console.log("Submitting Site Log:", { logType, description });
-        onClose();
+        setLoading(true);
+        try {
+            await axios.post(`${API_BASE_URL}/site-ops/logs`, {
+                type: logType,
+                description,
+                timestamp: new Date()
+            });
+            onClose();
+        } catch (error) {
+            console.error("Error creating site log:", error);
+            alert("Failed to create log. Please try again.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

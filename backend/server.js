@@ -12,6 +12,8 @@ import mongoose from "mongoose";
 import { Server } from "socket.io";
 import leadRoutes from "./routes/leadRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+
 import projectRoutes from "./routes/projectRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import materialRoutes from "./routes/materialRoutes.js";
@@ -22,6 +24,9 @@ import supportRoutes from "./routes/supportRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import milestoneRoutes from "./routes/milestoneRoutes.js";
 import siteVisitRoutes from "./routes/siteVisitRoutes.js";
+import redirectRoutes from "./routes/redirectRoutes.js";
+import siteOperationsRoutes from './routes/siteOperationsRoutes.js';
+
 
 const app = express();
 const server = http.createServer(app);
@@ -72,7 +77,9 @@ io.on("connection", (socket) => {
 app.set("io", io);
 
 /* -------------------- ROUTES -------------------- */
+app.use("/api/auth", authRoutes);
 app.use("/api/signup", userRoutes); // Signup route
+
 app.use("/api/lead", leadRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
@@ -85,6 +92,9 @@ app.use("/api/support", supportRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/milestones", milestoneRoutes);
 app.use("/api/site-visits", siteVisitRoutes);
+app.use("/api/redirect", redirectRoutes);
+app.use("/api/site-ops", siteOperationsRoutes);
+
 
 /* -------------------- HEALTH CHECK -------------------- */
 app.get("/", (req, res) => {

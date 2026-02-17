@@ -1,13 +1,19 @@
 import mongoose from 'mongoose';
 
 const projectSchema = new mongoose.Schema({
-    title: {
+    name: {
         type: String,
         required: true,
     },
     location: {
         type: String,
         default: ""
+    },
+    startDate: {
+        type: Date
+    },
+    endDate: {
+        type: Date
     },
     status: {
         type: String,

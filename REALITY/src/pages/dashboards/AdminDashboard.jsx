@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     UserPlus, Gear, ShieldCheck, ToggleLeft, ToggleRight,
     PencilSimple, Plus, CreditCard, ListBullets, ChartBar,
     CaretRight, BellRinging, Globe, Lock, Download
 } from '@phosphor-icons/react';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
+import socketService from '../../services/socket';
 import CreateUserModal from '../../components/CreateUserModal';
 
 const AdminDashboard = ({ setCurrentPage }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [users, setUsers] = useState([
-        { id: 1, name: 'John Doe', role: 'Builder', status: 'Active', permissions: 'Full Access' },
-        { id: 2, name: 'Alice Smith', role: 'Civil Engineer', status: 'Active', permissions: 'Site Reports' },
-        { id: 3, name: 'Bob Wilson', role: 'Client', status: 'Inactive', permissions: 'Read Only' },
-    ]);
+    const [users, setUsers] = useState([]);
+    const [stats, setStats] = useState({
+        activeSubscriptions: 0,
+        systemHealth: '99.9%',
+        pendingApprovals: 0,
+        auditAlerts: 0
+    });
+    const [loading, setLoading] = useState(true);
 
     const workflows = [
         { id: 1, name: 'Auto-Assign Civil Engineer', trigger: 'Project Creation', status: 'Enabled' },
@@ -26,20 +32,66 @@ const AdminDashboard = ({ setCurrentPage }) => {
         { id: 3, action: 'Workflow Triggered', user: 'System', time: '12 hours ago', status: 'Automation' },
     ];
 
-    const toggleStatus = (id) => {
-        setUsers(users.map(u => u.id === id ? { ...u, status: u.status === 'Active' ? 'Inactive' : 'Active' } : u));
+    useEffect(() => {
+        fetchUsers();
+
+        // Real-time listeners
+        socketService.on('newUser', (user) => {
+            console.log('[REAL-TIME] New user added:', user);
+            setUsers(prev => [user, ...prev]);
+        });
+
+        socketService.on('userUpdated', (updatedUser) => {
+            console.log('[REAL-TIME] User updated:', updatedUser);
+            setUsers(prev => prev.map(u => u._id === updatedUser._id ? updatedUser : u));
+        });
+
+        return () => {
+            socketService.off('newUser');
+            socketService.off('userUpdated');
+        };
+    }, []);
+
+    const fetchUsers = async () => {
+        try {
+            const response = await axios.get(`${API_BASE_URL}/users`);
+            setUsers(response.data);
+            setStats(prev => ({
+                ...prev,
+                activeSubscriptions: response.data.filter(u => u.status === 'Active').length
+            }));
+        } catch (error) {
+            console.error('Error fetching users:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleCreateUser = (userData) => {
-        const newUser = {
-            id: users.length + 1,
-            name: userData.name || `${userData.firstName} ${userData.lastName}`,
-            role: userData.roles[0] || 'User', // Display primary role
-            status: userData.status,
-            permissions: userData.roles.includes('Admin') ? 'Full Access' : 'Standard'
-        };
-        setUsers([...users, newUser]);
-        setShowCreateModal(false);
+    const toggleStatus = async (id) => {
+        const user = users.find(u => u._id === id);
+        const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
+
+        try {
+            await axios.patch(`${API_BASE_URL}/users/${id}`, { status: newStatus });
+            setUsers(users.map(u => u._id === id ? { ...u, status: newStatus } : u));
+        } catch (error) {
+            console.error('Error updating user status:', error);
+        }
+    };
+
+    const handleCreateUser = async (userData) => {
+        try {
+            const response = await axios.post(`${API_BASE_URL}/users`, {
+                name: userData.name || `${userData.firstName} ${userData.lastName}`,
+                email: userData.email,
+                role: userData.roles[0] || 'Client',
+                status: userData.status || 'Active'
+            });
+            setUsers([response.data, ...users]);
+            setShowCreateModal(false);
+        } catch (error) {
+            console.error('Error creating user:', error);
+        }
     };
 
     return (
@@ -77,10 +129,10 @@ const AdminDashboard = ({ setCurrentPage }) => {
             {/* Quick Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
                 {[
-                    { label: 'Active Subscriptions', value: '48', color: 'var(--pivot-blue)' },
-                    { label: 'System Health', value: '99.9%', color: '#4CAF50' },
-                    { label: 'Pending Approvals', value: '12', color: '#ff9f4d' },
-                    { label: 'Audit Alerts', value: '0', color: '#e53e3e' }
+                    { label: 'Active Subscriptions', value: stats.activeSubscriptions, color: 'var(--pivot-blue)' },
+                    { label: 'System Health', value: stats.systemHealth, color: '#4CAF50' },
+                    { label: 'Pending Approvals', value: stats.pendingApprovals, color: '#ff9f4d' },
+                    { label: 'Audit Alerts', value: stats.auditAlerts, color: '#e53e3e' }
                 ].map((stat, i) => (
                     <div key={i} className="card" style={{ padding: '1.2rem' }}>
                         <div style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '5px' }}>{stat.label}</div>
@@ -105,7 +157,7 @@ const AdminDashboard = ({ setCurrentPage }) => {
                     </thead>
                     <tbody>
                         {users.map((u) => (
-                            <tr key={u.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                            <tr key={u._id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                                 <td style={{ padding: '1rem', fontWeight: 600 }}>{u.name}</td>
                                 <td style={{ padding: '1rem' }}>{u.role}</td>
                                 <td style={{ padding: '1rem' }}>
@@ -116,7 +168,7 @@ const AdminDashboard = ({ setCurrentPage }) => {
                                     }}>{u.status}</span>
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
-                                    <button onClick={() => toggleStatus(u.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: u.status === 'Active' ? '#4CAF50' : '#ccc' }}>
+                                    <button onClick={() => toggleStatus(u._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: u.status === 'Active' ? '#4CAF50' : '#ccc' }}>
                                         {u.status === 'Active' ? <ToggleRight size={28} weight="fill" /> : <ToggleLeft size={28} weight="fill" />}
                                     </button>
                                 </td>

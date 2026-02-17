@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Plus, Buildings, Users, Gear, ChartLineUp,
     CurrencyDollar, PencilSimple, Trash, UserPlus,
@@ -6,6 +6,9 @@ import {
     FileArrowUp, Calendar, Clock, Checks, FileText,
     Robot, HardDrive, MagnifyingGlass
 } from '@phosphor-icons/react';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
+import socketService from '../../services/socket';
 import CreateProjectModal from '../../components/CreateProjectModal';
 import AIPlanningModal from '../../components/AIPlanningModal';
 import ScheduleGenerationModal from '../../components/ScheduleGenerationModal';
@@ -14,45 +17,8 @@ const BuilderDashboard = () => {
     const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
     const [showAIPlanningModal, setShowAIPlanningModal] = useState(false);
     const [showScheduleGenerationModal, setShowScheduleGenerationModal] = useState(false);
-    const [projects, setProjects] = useState([
-        {
-            id: 1,
-            name: 'Skyline Towers (Phase 1)',
-            location: 'Downtown Core',
-            budget: 2400000,
-            spent: 1100000,
-            progress: 45,
-            team: {
-                engineer: 'Alice Smith',
-                manager: 'David Chen',
-                vendor: 'SteelCo Ltd'
-            },
-            automation: 'High Performance Mode',
-            milestones: [
-                { id: 1, name: 'Foundation', status: 'Completed', date: 'Jan 20' },
-                { id: 2, name: 'Structure', status: 'In Progress', date: 'Feb 15' },
-                { id: 3, name: 'Electrical', status: 'Upcoming', date: 'Mar 10' }
-            ]
-        },
-        {
-            id: 2,
-            name: 'Green Valley Residency',
-            location: 'North Suburbs',
-            budget: 1800000,
-            spent: 400000,
-            progress: 20,
-            team: {
-                engineer: 'Unassigned',
-                manager: 'Sarah Miller',
-                vendor: 'BrickMaster'
-            },
-            automation: 'Standard Log',
-            milestones: [
-                { id: 1, name: 'Piling', status: 'Completed', date: 'Jan 25' },
-                { id: 2, name: 'Foundation', status: 'Upcoming', date: 'Mar 05' }
-            ]
-        },
-    ]);
+    const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     const expenseApprovals = [
         { id: 1, item: 'Steel Reinforcement', amount: '$45,000', project: 'Skyline Towers', date: 'Today' },
@@ -64,24 +30,52 @@ const BuilderDashboard = () => {
         { id: 2, name: 'Structural_Audit_Report.docx', project: 'Green Valley', type: 'Compliance' },
     ];
 
-    const handleCreateProject = (projectData) => {
-        const newProject = {
-            id: projects.length + 1,
-            name: projectData.projectName,
-            location: projectData.location || 'New Location',
-            budget: parseFloat(projectData.estimatedCost) || 0,
-            spent: 0,
-            progress: 0,
-            team: {
-                engineer: projectData.civilEngineer || 'Unassigned',
-                manager: projectData.siteManager || 'Unassigned',
-                vendor: 'Pending'
-            },
-            automation: projectData.automationEnabled ? 'Automated' : 'Manual',
-            milestones: []
+    useEffect(() => {
+        fetchProjects();
+
+        // Real-time listeners
+        socketService.on('project-added', (project) => {
+            console.log('[REAL-TIME] New project added:', project);
+            setProjects(prev => [project, ...prev]);
+        });
+
+        socketService.on('project-updated', (updatedProject) => {
+            console.log('[REAL-TIME] Project updated:', updatedProject);
+            setProjects(prev => prev.map(p => p._id === updatedProject._id ? updatedProject : p));
+        });
+
+        return () => {
+            socketService.off('project-added');
+            socketService.off('project-updated');
         };
-        setProjects([...projects, newProject]);
-        setShowCreateProjectModal(false);
+    }, []);
+
+    const fetchProjects = async () => {
+        try {
+            const response = await axios.get(`${API_BASE_URL}/projects`);
+            setProjects(response.data);
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreateProject = async (projectData) => {
+        try {
+            const response = await axios.post(`${API_BASE_URL}/projects`, {
+                name: projectData.projectName,
+                location: projectData.location || 'New Location',
+                budget: parseFloat(projectData.estimatedCost) || 0,
+                totalUnits: projectData.totalUnits || 0,
+                availableUnits: projectData.totalUnits || 0,
+                status: 'Active'
+            });
+            setProjects([response.data, ...projects]);
+            setShowCreateProjectModal(false);
+        } catch (error) {
+            console.error('Error creating project:', error);
+        }
     };
 
     return (
@@ -155,66 +149,68 @@ const BuilderDashboard = () => {
                     </h3>
 
                     <div style={{ display: 'grid', gap: '2rem' }}>
-                        {projects.map((p) => (
-                            <div key={p.id} className="card" style={{ padding: '2rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                                    <div>
-                                        <h4 style={{ fontSize: '1.3rem', fontWeight: 800, margin: 0, color: '#1a1a1a' }}>{p.name}</h4>
-                                        <div style={{ fontSize: '0.85rem', color: '#2c3e50', fontWeight: 600 }}>{p.location}</div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--pivot-blue)' }}>{p.progress}%</div>
-                                            <div style={{ fontSize: '0.7rem', color: '#2c3e50', fontWeight: 600 }}>Progress</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Timeline & Milestones */}
-                                <div style={{ marginBottom: '2rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                        <div style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Calendar size={18} color="var(--pivot-blue)" /> Project Timeline
-                                        </div>
-                                        <button style={{ fontSize: '0.75rem', color: 'var(--pivot-blue)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>Manage Milestones</button>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        {p.milestones.map((m) => (
-                                            <div key={m.id} style={{
-                                                flex: 1, padding: '10px', borderRadius: '10px',
-                                                background: m.status === 'Completed' ? '#e6f4ea' : m.status === 'In Progress' ? 'var(--pivot-blue-soft)' : '#f8f9fa',
-                                                border: `1px solid ${m.status === 'In Progress' ? 'var(--pivot-blue)' : 'transparent'}`
-                                            }}>
-                                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: m.status === 'Completed' ? '#1e7e34' : m.status === 'In Progress' ? 'var(--pivot-blue)' : '#4a4a4a' }}>{m.name}</div>
-                                                <div style={{ fontSize: '0.65rem', color: '#2c3e50', fontWeight: 600 }}>{m.date}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                                    <div style={{ padding: '1.2rem', background: '#f8f9fa', borderRadius: '14px', border: '1px solid #eee' }}>
-                                        <div style={{ fontSize: '0.75rem', color: '#2c3e50', fontWeight: 700, marginBottom: '5px' }}>Financial Snapshot</div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a1a1a' }}>${(p.spent / 1000).toFixed(0)}k</div>
-                                                <div style={{ fontSize: '0.65rem', color: '#2c3e50', fontWeight: 600 }}>Spent of ${(p.budget / 1000).toFixed(0)}k</div>
-                                            </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <CurrencyDollar size={20} color="var(--pivot-blue)" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '1.2rem', background: '#f8f9fa', borderRadius: '14px' }}>
-                                        <div style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '5px' }}>Resources</div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pivot-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700 }}>AS</div>
-                                            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--pivot-blue)' }}>{p.team.engineer}</div>
-                                        </div>
-                                    </div>
-                                </div>
+                        {projects.length === 0 && !loading && (
+                            <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+                                <Buildings size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} />
+                                <p>No projects yet. Click "Start New Project" to begin.</p>
                             </div>
-                        ))}
+                        )}
+                        {projects.map((p) => {
+                            const progress = p.totalUnits ? Math.round(((p.totalUnits - p.availableUnits) / p.totalUnits) * 100) : 0;
+                            const spent = p.spent || 0;
+                            const budget = p.budget || 0;
+
+                            return (
+                                <div key={p._id} className="card" style={{ padding: '2rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                                        <div>
+                                            <h4 style={{ fontSize: '1.3rem', fontWeight: 800, margin: 0, color: '#1a1a1a' }}>{p.name}</h4>
+                                            <div style={{ fontSize: '0.85rem', color: '#2c3e50', fontWeight: 600 }}>{p.location || 'Location TBD'}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--pivot-blue)' }}>{progress}%</div>
+                                                <div style={{ fontSize: '0.7rem', color: '#2c3e50', fontWeight: 600 }}>Progress</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline & Milestones */}
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Calendar size={18} color="var(--pivot-blue)" /> Project Status
+                                            </div>
+                                            <span style={{ fontSize: '0.75rem', padding: '4px 12px', borderRadius: '12px', background: p.status === 'Active' ? '#e6f4ea' : '#fff0f0', color: p.status === 'Active' ? '#1e7e34' : '#e53e3e', fontWeight: 700 }}>
+                                                {p.status || 'Active'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                                        <div style={{ padding: '1.2rem', background: '#f8f9fa', borderRadius: '14px', border: '1px solid #eee' }}>
+                                            <div style={{ fontSize: '0.75rem', color: '#2c3e50', fontWeight: 700, marginBottom: '5px' }}>Financial Snapshot</div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a1a1a' }}>${(spent / 1000).toFixed(0)}k</div>
+                                                    <div style={{ fontSize: '0.65rem', color: '#2c3e50', fontWeight: 600 }}>Spent of ${(budget / 1000).toFixed(0)}k</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <CurrencyDollar size={20} color="var(--pivot-blue)" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ padding: '1.2rem', background: '#f8f9fa', borderRadius: '14px' }}>
+                                            <div style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '5px' }}>Units</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pivot-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700 }}>{p.availableUnits || 0}</div>
+                                                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--pivot-blue)' }}>Available of {p.totalUnits || 0}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
                     </div>
                 </div>
 

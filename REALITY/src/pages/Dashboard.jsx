@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Lightning, Calendar, CurrencyDollar, Plus, Robot } from '@phosphor-icons/react';
+import { UserPlus, Lightning, Calendar, CurrencyDollar, Plus, Robot, Globe } from '@phosphor-icons/react';
+import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 import LeadStatusChart from '../components/LeadStatusChart';
+
 import { dashboardService, leadService, projectService } from '../services/api';
 import socketService from '../services/socket';
 
@@ -43,6 +46,7 @@ const MetricCard = ({ icon: Icon, title, value, detail, detailColor, action }) =
 
 const Dashboard = ({ setCurrentPage }) => {
     const [stats, setStats] = useState(null);
+    const [redirectStats, setRedirectStats] = useState([]);
     const [leads, setLeads] = useState([]);
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -52,15 +56,17 @@ const Dashboard = ({ setCurrentPage }) => {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [statsRes, leadsRes, projectsRes] = await Promise.all([
+                const [statsRes, leadsRes, projectsRes, redirectRes] = await Promise.all([
                     dashboardService.getStats(),
                     leadService.getAll(),
-                    projectService.getAll()
+                    projectService.getAll(),
+                    axios.get(`${API_BASE_URL}/redirect/stats/all`)
                 ]);
 
                 setStats(statsRes);
                 setLeads(leadsRes || []);
                 setProjects(projectsRes || []);
+                setRedirectStats(redirectRes.data || []);
             } catch (error) {
                 console.error("Dashboard Fetch Error:", error);
             } finally {
@@ -73,6 +79,19 @@ const Dashboard = ({ setCurrentPage }) => {
         // Real-time listener
         socketService.on('dashboard-update', (newStats) => {
             setStats(newStats);
+        });
+
+        socketService.on('redirectUpdate', (updatedRedirect) => {
+            console.log('[REAL-TIME] Redirect Update Received:', updatedRedirect);
+            setRedirectStats(prev => {
+                const index = prev.findIndex(r => r.source === updatedRedirect.source);
+                if (index !== -1) {
+                    const newStats = [...prev];
+                    newStats[index] = updatedRedirect;
+                    return newStats;
+                }
+                return [updatedRedirect, ...prev];
+            });
         });
 
         socketService.on('lead-added', (lead) => {
@@ -121,7 +140,7 @@ const Dashboard = ({ setCurrentPage }) => {
     if (loading) return <div style={{ padding: '2rem' }}>Loading Dashboard...</div>;
 
     return (
-        <div style={{ padding: '2rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
+        <div style={{ padding: '2rem', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.5rem' }}>
             <MetricCard
                 icon={UserPlus}
                 title="Total Leads"
@@ -149,6 +168,13 @@ const Dashboard = ({ setCurrentPage }) => {
                 detail="From Hot leads"
                 detailColor="#4CAF50"
             />
+            <MetricCard
+                icon={Globe}
+                title="Social Traffic"
+                value={redirectStats.reduce((acc, curr) => acc + curr.count, 0)}
+                detail={`${redirectStats.length} active sources`}
+                detailColor="var(--pivot-blue)"
+            />
 
             {/* Leads Distribution & Management Section */}
             <div className="card"
@@ -159,6 +185,7 @@ const Dashboard = ({ setCurrentPage }) => {
                     gap: '1.5rem'
                 }}
             >
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 0.5rem' }}>
                     <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Leads Distribution & Analysis</h2>
                     <span
@@ -252,9 +279,28 @@ const Dashboard = ({ setCurrentPage }) => {
                 </div>
             </div>
 
-            {/* Property Summary */}
-            <div className="card" style={{ gridColumn: 'span 1' }}>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Inventory Status</h2>
+            {/* Property Summary & Traffic Sources */}
+            <div className="card" style={{ gridColumn: 'span 2' }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem' }}>Inventory & Traffic</h2>
+
+                {/* Traffic Sources Mini-List */}
+                <div style={{ marginBottom: '2rem', padding: '1rem', background: 'var(--pivot-blue-soft)', borderRadius: '12px' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--pivot-blue)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Globe size={16} /> Live Sources
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {redirectStats.slice(0, 3).map((r, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                                <span style={{ textTransform: 'capitalize' }}>{r.source}</span>
+                                <span style={{ fontWeight: 700 }}>{r.count}</span>
+                            </div>
+                        ))}
+                        {redirectStats.length === 0 && <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>No external traffic tracked yet.</div>}
+                    </div>
+                </div>
+
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1rem' }}>Inventory Status</h3>
+
                 {projects.slice(0, 5).map((p, i) => {
                     const soldPercent = Math.round(((p.totalUnits - p.availableUnits) / p.totalUnits) * 100) || 0;
                     return (

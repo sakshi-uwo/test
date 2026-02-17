@@ -1,15 +1,32 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { X, ShieldWarning, Warning, MapPin, Camera, Info } from '@phosphor-icons/react';
+import { API_BASE_URL } from '../config/api';
 
 const ReportIncidentModal = ({ onClose }) => {
-    const [severity, setSeverity] = useState('medium');
+    const [severity, setSeverity] = useState('Medium');
     const [title, setTitle] = useState('');
     const [location, setLocation] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log("Reporting Incident:", { severity, title, location });
-        onClose();
+        setLoading(true);
+        try {
+            await axios.post(`${API_BASE_URL}/site-ops/incidents`, {
+                title,
+                description: title, // Using title as description since form doesn't have it
+                severity,
+                location,
+                status: 'Open'
+            });
+            onClose();
+        } catch (error) {
+            console.error("Error creating incident:", error);
+            alert("Failed to report incident. Please try again.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
